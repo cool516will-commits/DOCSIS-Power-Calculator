@@ -34,8 +34,9 @@ with tab1:
     col1, col2 = st.columns([1.5, 1])
     
     with col1:
-        # 你要求的一次性系統總頻寬限制
-        bw_limit = st.number_input("⚙️ 設定一次性系統總頻寬上限限制 (MHz)", value=100.0, step=5.0, format="%.1f")
+        # 頻寬限制直接寫死在內部當常數，不再提供輸入框佔位子
+        bw_limit = 100.0
+        
         ch_num = st.slider("欲計算的總通道數量", min_value=1, max_value=12, value=8)
         
         st.subheader("📥 各通道實際數據輸入")
@@ -90,4 +91,6 @@ with tab2:
         total_tcp_dbmv = linear_to_db(total_tcp_linear)
         total_bw = (qam_count * qam_bw) + ofdma_bw
         
-        st.metric
+        st.metric(label="🔋 混合總輸出功率 (TCP)", value=f"{total_tcp_dbmv:.2f} dBmV")
+        st.info(f"📊 SC-QAM 總和功率: {linear_to_db(total_qam_linear):.2f} dBmV | OFDMA 總功率: {ofdma_p:.2f} dBmV")
+        st.warning(f"🌐 總佔用頻寬: {total_bw:.2f} MHz")
