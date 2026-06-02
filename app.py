@@ -19,7 +19,6 @@ def linear_to_db(linear):
 
 # 3. 網頁大標題
 st.title("📡 EdisonSu DOCSIS Power Calculator")
-st.markdown("---")
 
 # 4. 建立功能分頁
 tab1, tab2 = st.tabs([
@@ -31,14 +30,15 @@ tab1, tab2 = st.tabs([
 # TAB 1: 多通道 TCP 功率計算
 # ==========================================
 with tab1:
-    st.subheader("多通道複合總功率計算 (Total Composite Power)")
+    st.header("多通道複合總功率計算 (Total Composite Power)")
     col1, col2 = st.columns([1.5, 1])
     
     with col1:
+        # 你要求的一次性系統總頻寬限制
         bw_limit = st.number_input("⚙️ 設定一次性系統總頻寬上限限制 (MHz)", value=100.0, step=5.0, format="%.1f")
         ch_num = st.slider("欲計算的總通道數量", min_value=1, max_value=12, value=8)
         
-        st.markdown("##### 📥 各通道實際數據輸入")
+        st.subheader("📥 各通道實際數據輸入")
         ch_powers = []
         ch_bws = []
         
@@ -69,17 +69,16 @@ with tab1:
 # TAB 2: SC-QAM + OFDMA 混合計算
 # ==========================================
 with tab2:
-    st.subheader("SC-QAM 與 OFDMA 總功率混合計算")
+    st.header("SC-QAM 與 OFDMA 總功率混合計算")
     col1, col2 = st.columns([1.2, 1])
     
     with col1:
-        st.markdown("##### 📥 傳統 SC-QAM 設定")
+        st.subheader("📥 傳統 SC-QAM 設定")
         qam_count = st.number_input("SC-QAM 通道數量", min_value=0, max_value=8, value=8, step=1)
         qam_p = st.number_input("單一 SC-QAM 通道功率 (dBmV)", value=30.50, step=0.1, format="%.2f")
         qam_bw = st.number_input("單一 SC-QAM 佔用頻寬 (MHz)", value=6.40, step=0.1, format="%.2f")
         
-        st.markdown("---")
-        st.markdown("##### 📥 新式 OFDMA 設定")
+        st.subheader("📥 新式 OFDMA 設定")
         ofdma_p = st.number_input("OFDMA 總量測功率 (dBmV)", value=33.00, step=0.1, format="%.2f")
         ofdma_bw = st.number_input("OFDMA 量測總頻寬 (MHz)", value=95.00, step=1.0, format="%.2f")
         
@@ -91,8 +90,4 @@ with tab2:
         total_tcp_dbmv = linear_to_db(total_tcp_linear)
         total_bw = (qam_count * qam_bw) + ofdma_bw
         
-        st.metric(label="🔋 混合總輸出功率 (TCP)", value=f"{total_tcp_dbmv:.2f} dBmV")
-        st.info(f"📊 SC-QAM 總和功率: {linear_to_db(total_qam_linear):.2f} dBmV | OFDMA 總功率: {ofdma_p:.2f} dBmV")
-        st.warning(f"🌐 總佔用頻寬: {total_bw:.2f} MHz")
-
-st.markdown
+        st.metric
