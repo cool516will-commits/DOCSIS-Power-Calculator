@@ -3,101 +3,87 @@ import pandas as pd
 import math
 
 st.set_page_config(
-    page_title="DOCSIS RF Power Calculator (Engineer Version)",
+    page_title="DOCSIS RF Power Calculator Pro",
     layout="wide"
 )
 
-st.title("📡 DOCSIS RF Power Calculator - OFDMA Multi-Channel Edition")
+st.title("📡 DOCSIS RF Power Calculator - Full Dynamic Channel Edition")
+
 
 # -----------------------------
-# Function: BW scaling
+# Power scaling model
 # -----------------------------
 def bw_scale_power(power_dbmv, bw_mhz):
-    """
-    Normalize power to 6 MHz reference (DOCSIS typical comparison)
-    Assumption: constant power spectral density
-    """
     if bw_mhz <= 0:
         return None
     return power_dbmv + 10 * math.log10(bw_mhz / 6.0)
 
 
-# -----------------------------
-# SIDEBAR SETTINGS
-# -----------------------------
-st.sidebar.header("⚙️ Global Settings")
+def total_power(df):
+    if df.empty:
+        return 0
+    lin = df["Normalized_6MHz"].fillna(0).apply(lambda x: 10**(x/10)).sum()
+    return 10 * math.log10(lin)
 
-ref_bw = st.sidebar.selectbox(
-    "Reference Bandwidth",
-    [6, 1.6, 3.2, 6.4],
-    index=0
+
+# -----------------------------
+# SC-QAM (FULL DYNAMIC)
+# -----------------------------
+st.header("📶 SC-QAM Channels (Fully Editable)")
+
+scqam_default = pd.DataFrame([
+    {
+        "Channel": "SC-QAM 1",
+        "Power_dBmV": 0.0,
+        "BW_MHz": 6.0,
+        "Center_Freq_MHz": 0.0
+    }
+])
+
+scqam_df = st.data_editor(
+    scqam_default,
+    num_rows="dynamic",
+    use_container_width=True
 )
 
-st.sidebar.write("All OFDMA channels will be normalized to 6 MHz equivalent unless changed.")
+scqam_df["Normalized_6MHz"] = scqam_df.apply(
+    lambda r: bw_scale_power(r["Power_dBmV"], r["BW_MHz"]),
+    axis=1
+)
 
 
 # -----------------------------
-# SC-QAM SECTION
+# OFDM (FULL DYNAMIC)
 # -----------------------------
-st.header("📶 SC-QAM Channels")
+st.header("📡 OFDM Channels (Fully Editable)")
 
-num_scqam = st.number_input("Number of SC-QAM channels", 0, 500, 10)
+ofdm_default = pd.DataFrame([
+    {
+        "Channel": "OFDM 1",
+        "Power_dBmV": 0.0,
+        "BW_MHz": 192.0,
+        "Center_Freq_MHz": 0.0
+    }
+])
 
-scqam_data = []
-for i in range(num_scqam):
-    col1, col2 = st.columns(2)
-    with col1:
-        pw = st.number_input(f"SC-QAM {i+1} Power (dBmV)", value=0.0, key=f"scqam_pw_{i}")
-    with col2:
-        bw = st.selectbox(f"SC-QAM {i+1} BW (MHz)", [6], key=f"scqam_bw_{i}")
+ofdm_df = st.data_editor(
+    ofdm_default,
+    num_rows="dynamic",
+    use_container_width=True
+)
 
-    scqam_data.append({
-        "Channel": f"SC-QAM {i+1}",
-        "Power_dBmV": pw,
-        "BW_MHz": bw,
-        "Normalized_6MHz": bw_scale_power(pw, bw)
-    })
-
-scqam_df = pd.DataFrame(scqam_data)
-
-
-# -----------------------------
-# OFDM SECTION
-# -----------------------------
-st.header("📡 OFDM Channels")
-
-num_ofdm = st.number_input("Number of OFDM channels", 0, 20, 1)
-
-ofdm_data = []
-for i in range(num_ofdm):
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        pw = st.number_input(f"OFDM {i+1} Power (dBmV)", value=0.0, key=f"ofdm_pw_{i}")
-    with col2:
-        bw = st.number_input(f"OFDM {i+1} BW (MHz)", value=192.0, key=f"ofdm_bw_{i}")
-    with col3:
-        center = st.number_input(f"Center Freq (MHz)", value=0.0, key=f"ofdm_cf_{i}")
-
-    ofdm_data.append({
-        "Channel": f"OFDM {i+1}",
-        "Power_dBmV": pw,
-        "BW_MHz": bw,
-        "Center_Freq_MHz": center,
-        "Normalized_6MHz": bw_scale_power(pw, bw)
-    })
-
-ofdm_df = pd.DataFrame(ofdm_data)
+ofdm_df["Normalized_6MHz"] = ofdm_df.apply(
+    lambda r: bw_scale_power(r["Power_dBmV"], r["BW_MHz"]),
+    axis=1
+)
 
 
 # -----------------------------
-# OFDMA SECTION (MULTI-CHANNEL FIXED)
+# OFDMA (FULL DYNAMIC)
 # -----------------------------
-st.header("📡 OFDMA Channels (Multi-Channel Support)")
+st.header("📡 OFDMA Channels (Fully Editable)")
 
-st.caption("👉 你可以新增很多條 OFDMA，每條 BW 都可以不同")
-
-default_ofdma = pd.DataFrame([
+ofdma_default = pd.DataFrame([
     {
         "Channel": "OFDMA 1",
         "Power_dBmV": 0.0,
@@ -107,12 +93,11 @@ default_ofdma = pd.DataFrame([
 ])
 
 ofdma_df = st.data_editor(
-    default_ofdma,
+    ofdma_default,
     num_rows="dynamic",
     use_container_width=True
 )
 
-# compute normalized
 ofdma_df["Normalized_6MHz"] = ofdma_df.apply(
     lambda r: bw_scale_power(r["Power_dBmV"], r["BW_MHz"]),
     axis=1
@@ -120,54 +105,44 @@ ofdma_df["Normalized_6MHz"] = ofdma_df.apply(
 
 
 # -----------------------------
-# SUMMARY
+# SUMMARY TABLES
 # -----------------------------
 st.header("📊 Summary")
 
-col1, col2, col3 = st.columns(3)
+c1, c2, c3 = st.columns(3)
 
-with col1:
+with c1:
     st.subheader("SC-QAM")
     st.dataframe(scqam_df, use_container_width=True)
 
-with col2:
+with c2:
     st.subheader("OFDM")
     st.dataframe(ofdm_df, use_container_width=True)
 
-with col3:
+with c3:
     st.subheader("OFDMA")
     st.dataframe(ofdma_df, use_container_width=True)
 
 
 # -----------------------------
-# TOTAL POWER ESTIMATION
+# TOTAL POWER
 # -----------------------------
-st.header("📈 Total Power Estimation (Simple Model)")
+st.header("📈 Power Summary (Engineering Model)")
 
-def total_power(df):
-    if len(df) == 0:
-        return 0
-    lin = df["Normalized_6MHz"].apply(lambda x: 10**(x/10)).sum()
-    return 10 * math.log10(lin)
+scqam_total = total_power(scqam_df)
+ofdm_total = total_power(ofdm_df)
+ofdma_total = total_power(ofdma_df)
 
-total_scqam = total_power(scqam_df)
-total_ofdm = total_power(ofdm_df)
-total_ofdma = total_power(ofdma_df)
+st.metric("SC-QAM Total (6MHz eq.)", round(scqam_total, 2))
+st.metric("OFDM Total (6MHz eq.)", round(ofdm_total, 2))
+st.metric("OFDMA Total (6MHz eq.)", round(ofdma_total, 2))
 
-st.metric("SC-QAM Total (dBmV eq. 6MHz)", round(total_scqam, 2))
-st.metric("OFDM Total (dBmV eq. 6MHz)", round(total_ofdm, 2))
-st.metric("OFDMA Total (dBmV eq. 6MHz)", round(total_ofdma, 2))
+
+grand_total = 10 * math.log10(
+    10**(scqam_total/10) +
+    10**(ofdm_total/10) +
+    10**(ofdma_total/10)
+)
 
 st.divider()
-
-st.metric(
-    "🔥 GRAND TOTAL (All Channels)",
-    round(
-        10 * math.log10(
-            10**(total_scqam/10) +
-            10**(total_ofdm/10) +
-            10**(total_ofdma/10)
-        ),
-        2
-    )
-)
+st.metric("🔥 GRAND TOTAL RF POWER", round(grand_total, 2))
