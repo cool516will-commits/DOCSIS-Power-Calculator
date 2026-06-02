@@ -34,9 +34,6 @@ with tab1:
     col1, col2 = st.columns([1.5, 1])
     
     with col1:
-        # 頻寬限制直接寫死在內部當常數，不再提供輸入框佔位子
-        bw_limit = 100.0
-        
         ch_num = st.slider("欲計算的總通道數量", min_value=1, max_value=12, value=8)
         
         st.subheader("📥 各通道實際數據輸入")
@@ -57,14 +54,10 @@ with tab1:
         tcp_dbmv = linear_to_db(total_linear_sum)
         sum_bw = sum(ch_bws)
         
+        # 只保留總功率與累積總頻寬的單純顯示，不再進行任何上限判斷
         st.metric(label="📊 Multi-Channel 複合總功率 (TCP)", value=f"{tcp_dbmv:.2f} dBmV")
         st.info(f"📈 所有通道線性加總功率: {tcp_dbmv:.2f} dBmV")
-        st.warning(f"⚠️ 目前累積總頻寬: {sum_bw:.2f} MHz / 限制上限 {bw_limit:.2f} MHz")
-        
-        if sum_bw > bw_limit:
-            st.error(f"🚨 警告：目前通道加總頻寬 ({sum_bw:.2f} MHz) 已經超標！")
-        else:
-            st.success(f"✅ 頻寬檢查正常：在限制範圍內。")
+        st.info(f"🌐 目前通道累積總頻寬: {sum_bw:.2f} MHz")
 
 # ==========================================
 # TAB 2: SC-QAM + OFDMA 混合計算
@@ -93,4 +86,4 @@ with tab2:
         
         st.metric(label="🔋 混合總輸出功率 (TCP)", value=f"{total_tcp_dbmv:.2f} dBmV")
         st.info(f"📊 SC-QAM 總和功率: {linear_to_db(total_qam_linear):.2f} dBmV | OFDMA 總功率: {ofdma_p:.2f} dBmV")
-        st.warning(f"🌐 總佔用頻寬: {total_bw:.2f} MHz")
+        st.info(f"🌐 總佔用頻寬: {total_bw:.2f} MHz")
