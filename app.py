@@ -1,12 +1,3 @@
-這張圖是典型的 Cable Modem (CM) 終端機（如同 Broadcom 晶片組常見的 show cable modem upstream 相關指令輸出）。
-
-從圖中我們可以看到有 8 個活躍的上行通道（txid 0 到 7），它們的 symbols/sec 都是 5,120,000 (5.12 Msps)，這代表它們全部都是標準的 SC-QAM 通道（每個通道佔用頻寬通常約為 6.4 MHz），目前圖中還沒有看到 OFDMA 通道的資訊。
-
-不過沒關係！為了讓你的計算機具有完整的實用性，我幫你把 Tab 2 (SC-QAM + OFDMA) 和 Tab 3 (Multi Channel Sum) 的計算邏輯與介面全部補齊，並且加入讓你自行輸入頻寬限制的功能。
-
-以下是全面升級的 app.py 完整程式碼：
-
-Python
 import streamlit as st
 import math
 
