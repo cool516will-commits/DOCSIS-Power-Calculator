@@ -1,100 +1,239 @@
+import streamlit as st
 import math
 
-# ==========================
-# OFDMA BW 換算
-# ==========================
-def ofdma_convert(power_dbmv, source_bw, target_bw):
+st.set_page_config(
+    page_title="DOCSIS Power Calculator",
+    layout="wide"
+)
 
-    if source_bw <= 0 or target_bw <= 0:
+# ==========================================
+# Functions
+# ==========================================
+
+def dbmv_to_linear(dbmv):
+    return 10 ** (dbmv / 10)
+
+
+def linear_to_dbmv(linear):
+    if linear <= 0:
         return 0
-
-    return power_dbmv + 10 * math.log10(
-        target_bw / source_bw
-    )
+    return 10 * math.log10(linear)
 
 
-# ==========================
-# SC-QAM Total Power
-# ==========================
-def scqam_total_power(power_list):
+def total_power_dbmv(power_list):
 
-    if len(power_list) == 0:
+    if not power_list:
         return 0
 
     linear_sum = sum(
-        10 ** (p / 10)
+        dbmv_to_linear(p)
         for p in power_list
     )
 
-    return 10 * math.log10(linear_sum)
+    return linear_to_dbmv(linear_sum)
 
 
-# ==========================
-# OFDMA Multiple Blocks
-# ==========================
-def ofdma_multi_total(blocks):
+def ofdma_convert(power, source_bw, target_bw):
 
-    """
-    blocks:
+    if source_bw <= 0:
+        return 0
+
+    return (
+        power +
+        10 * math.log10(
+            target_bw / source_bw
+        )
+    )
+
+
+# ==========================================
+# Title
+# ==========================================
+
+st.title("📡 DOCSIS Power Calculator")
+st.markdown("---")
+
+tab1, tab2, tab3 = st.tabs(
     [
-      {"power":41.0,"bw":96},
-      {"power":42.0,"bw":192}
+        "OFDMA",
+        "SC-QAM",
+        "MULTI"
     ]
-    """
+)
 
-    psd_linear = 0
+# ==========================================
+# OFDMA
+# ==========================================
 
-    for blk in blocks:
+with tab1:
 
-        p = blk["power"]
-        bw = blk["bw"]
+    st.subheader("OFDMA BW Converter")
 
-        psd_linear += (
-            10 ** (
-                (p - 10 * math.log10(bw))
-                / 10
-            )
-        )
+    col1, col2 = st.columns(2)
 
-    total_bw = sum(
-        blk["bw"]
-        for blk in blocks
+    power = col1.number_input(
+        "OFDMA Power (dBmV)",
+        value=41.00,
+        step=0.01
     )
 
-    return (
-        10 * math.log10(
-            psd_linear * total_bw
-        )
+    source_bw = col2.number_input(
+        "OFDMA BW (MHz)",
+        value=96.0,
+        min_value=0.1,
+        step=0.1
     )
 
+    st.markdown("### Reference BW Conversion")
 
-# ==========================
-# Mixed OFDMA + SCQAM
-# ==========================
-def mixed_total_power(
-        ofdma_blocks,
-        scqam_channels):
+    ref_bws = [
+        1.6,
+        3.2,
+        6.4,
+        12.8,
+        25.6,
+        48,
+        96,
+        192
+    ]
 
-    total_linear = 0
+    result_data = []
 
-    # OFDMA
-    for blk in ofdma_blocks:
+    for bw in ref_bws:
 
-        total_linear += (
-            10 ** (
-                blk["power"] / 10
-            )
+        result = ofdma_convert(
+            power,
+            source_bw,
+            bw
         )
 
-    # SCQAM
-    for p in scqam_channels:
-
-        total_linear += (
-            10 ** (p / 10)
+        result_data.append(
+            {
+                "BW (MHz)": bw,
+                "Power (dBmV)": round(result, 2)
+            }
         )
 
-    return (
-        10 * math.log10(
-            total_linear
+    st.table(result_data)
+
+# ==========================================
+# SC-QAM
+# ==========================================
+
+with tab2:
+
+    st.subheader(
+        "SC-QAM Total Power Calculator"
+    )
+
+    num_ch = st.number_input(
+        "Channel Count",
+        min_value=1,
+        max_value=128,
+        value=8
+    )
+
+    powers = []
+
+    for i in range(num_ch):
+
+        p = st.number_input(
+            f"Channel {i+1} Power (dBmV)",
+            value=32.25,
+            step=0.01,
+            key=f"sc_{i}"
         )
+
+        powers.append(p)
+
+    total = total_power_dbmv(
+        powers
+    )
+
+    st.metric(
+        "Total SC-QAM Power",
+        f"{total:.2f} dBmV"
+    )
+
+# ==========================================
+# MULTI
+# ==========================================
+
+with tab3:
+
+    st.subheader(
+        "OFDMA + SC-QAM Mixed Power"
+    )
+
+    st.markdown(
+        "### OFDMA Blocks"
+    )
+
+    ofdma_count = st.number_input(
+        "OFDMA Block Count",
+        min_value=0,
+        max_value=16,
+        value=1
+    )
+
+    all_powers = []
+
+    for i in range(ofdma_count):
+
+        col1, col2 = st.columns(2)
+
+        p = col1.number_input(
+            f"OFDMA {i+1} Power",
+            value=41.0,
+            step=0.01,
+            key=f"ofdma_p_{i}"
+        )
+
+        bw = col2.number_input(
+            f"OFDMA {i+1} BW",
+            value=96.0,
+            min_value=0.1,
+            step=0.1,
+            key=f"ofdma_bw_{i}"
+        )
+
+        all_powers.append(p)
+
+    st.markdown("---")
+
+    st.markdown(
+        "### SC-QAM Channels"
+    )
+
+    sc_count = st.number_input(
+        "SC-QAM Channel Count",
+        min_value=0,
+        max_value=128,
+        value=8
+    )
+
+    for i in range(sc_count):
+
+        p = st.number_input(
+            f"SC-QAM {i+1} Power",
+            value=32.25,
+            step=0.01,
+            key=f"mix_sc_{i}"
+        )
+
+        all_powers.append(p)
+
+    total_mix = total_power_dbmv(
+        all_powers
+    )
+
+    st.markdown("---")
+
+    st.metric(
+        "Total CM Output Power",
+        f"{total_mix:.2f} dBmV"
+    )
+
+    st.info(
+        "Calculation = Linear Power Summation"
     )
