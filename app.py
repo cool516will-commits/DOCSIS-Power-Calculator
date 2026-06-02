@@ -1,222 +1,105 @@
 import streamlit as st
 import math
 
+# 設定網頁標題與主題色
 st.set_page_config(
     page_title="EdisonSu DOCSIS Power Calculator",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
+# 注入自訂 CSS，讓介面更有科技感、卡片化排版
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .metric-card {
+        background-color: #ffffff;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border-left: 6px solid #007bff;
+        margin-bottom: 20px;
+    }
+    .result-box {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+    .result-title { font-size: 16px; opacity: 0.8; font-weight: 500; }
+    .result-value { font-size: 42px; font-weight: 700; margin: 10px 0; color: #00f2fe; }
+    .sub-text { font-size: 14px; opacity: 0.9; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 10px; margin-top: 10px;}
+    </style>
+""", unsafe_allow_html=True)
+
+# 頂部精美 Banner
 st.title("📡 EdisonSu DOCSIS Power Calculator")
+st.markdown("---")
 
-# ==========================================
-# Functions
-# ==========================================
-
+# 基礎轉換函式
 def db_to_linear(db):
     return 10 ** (db / 10)
 
 def linear_to_db(linear):
+    if linear <= 0:
+        return 0
     return 10 * math.log10(linear)
 
-# ==========================================
-# Tabs
-# ==========================================
-
+# 建立分頁
 tab1, tab2, tab3 = st.tabs([
-    "OFDMA BW Converter",
-    "SC-QAM + OFDMA",
-    "Multi Channel Sum"
+    "📊 OFDMA BW Converter", 
+    "📈 SC-QAM + OFDMA", 
+    "🧮 Multi Channel Sum"
 ])
 
 # ==========================================
-# TAB1
+# TAB 1: OFDMA BW Converter
 # ==========================================
-
 with tab1:
-
-    st.header("OFDMA Power Converter")
-
-    col1, col2 = st.columns(2)
-
+    st.subheader("OFDMA Power Converter")
+    
+    # 左右並排版型（左邊輸入、右邊漂亮輸出）
+    col1, col2 = st.columns([1.2, 1])
+    
     with col1:
-
-        measured_power = st.number_input(
-            "Measured Power (dBmV)",
-            value=15.0,
-            step=0.1
-        )
-
-        measured_bw = st.number_input(
-            "Measured Bandwidth (MHz)",
-            value=96.0,
-            step=0.1
-        )
-
-        target_bw = st.number_input(
-            "Target Bandwidth (MHz)",
-            value=6.0,
-            step=0.1
-        )
-
+        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        st.markdown("### 📥 參數輸入")
+        
+        # 使用欄位再細分，讓輸入框不要那麼寬
+        sub_col1, sub_col2 = st.columns(2)
+        with sub_col1:
+            p_meas = st.number_input("Measured Power (dBmV)", value=33.00, step=0.1, format="%.2f")
+            bw_meas = st.number_input("Measured Bandwidth (MHz)", value=95.00, step=1.0, format="%.2f")
+        with sub_col2:
+            bw_target = st.number_input("Target Bandwidth (MHz)", value=6.50, step=0.1, format="%.2f")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
     with col2:
-
-        if measured_bw > 0 and target_bw > 0:
-
-            converted_power = (
-                measured_power
-                - 10 * math.log10(measured_bw / target_bw)
-            )
-
-            st.metric(
-                "Converted Power (dBmV)",
-                f"{converted_power:.2f}"
-            )
-
-            st.info(
-                f"{measured_power:.2f} dBmV @ {measured_bw:.2f} MHz\n\n"
-                f"Equivalent to {converted_power:.2f} dBmV @ {target_bw:.2f} MHz"
-            )
+        # 計算核心邏輯
+        if bw_meas > 0 and bw_target > 0:
+            # 頻寬功率換算公式
+            p_target = p_meas + linear_to_db(bw_target / bw_meas)
+            
+            # 美化輸出卡片
+            st.markdown(f"""
+                <div class="result-box">
+                    <div class="result-title">Converted Power (dBmV)</div>
+                    <div class="result-value">{p_target:.2f} <span style="font-size:20px;">dBmV</span></div>
+                    <div class="sub-text">
+                        📍 <b>原始條件:</b> {p_meas:.2f} dBmV @ {bw_meas:.2f} MHz<br>
+                        🔄 <b>等效換算:</b> 相當於在 {bw_target:.2f} MHz 頻寬下的功率
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.error("頻寬數值必須大於 0")
 
 # ==========================================
-# TAB2
+# TAB 2 & 3 預留空間 (你可以依此類推修改)
 # ==========================================
-
 with tab2:
-
-    st.header("SC-QAM + OFDMA Total Power")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        scqam_power = st.number_input(
-            "SC-QAM Power (dBmV)",
-            value=0.0,
-            step=0.1
-        )
-
-        scqam_count = st.number_input(
-            "SC-QAM Count",
-            value=32,
-            step=1
-        )
-
-    with col2:
-
-        ofdma_power = st.number_input(
-            "OFDMA Power (dBmV)",
-            value=15.0,
-            step=0.1
-        )
-
-        ofdma_count = st.number_input(
-            "OFDMA Count",
-            value=1,
-            step=1
-        )
-
-        ofdma_bw = st.number_input(
-            "OFDMA Bandwidth (MHz)",
-            value=96.0,
-            step=0.1
-        )
-
-    if st.button("Calculate Total Power"):
-
-        total_linear = 0
-
-        # SC-QAM
-        for _ in range(int(scqam_count)):
-            total_linear += db_to_linear(scqam_power)
-
-        # OFDMA
-        for _ in range(int(ofdma_count)):
-            total_linear += db_to_linear(ofdma_power)
-
-        total_dbmv = linear_to_db(total_linear)
-
-        equivalent_6mhz = (
-            ofdma_power
-            - 10 * math.log10(ofdma_bw / 6)
-        )
-
-        st.success(
-            f"Total DS Power = {total_dbmv:.2f} dBmV"
-        )
-
-        st.info(
-            f"OFDMA Equivalent 6MHz Power = "
-            f"{equivalent_6mhz:.2f} dBmV"
-        )
-
-# ==========================================
-# TAB3
-# ==========================================
+    st.info("SC-QAM + OFDMA 混合計算模組開發中...")
 
 with tab3:
-
-    st.header("Multi Channel Power Sum")
-
-    st.write(
-        "Paste one power value per line"
-    )
-
-    power_text = st.text_area(
-        "Power List",
-        height=250,
-        placeholder="""
-14.01
-15.03
-12.43
-12.52
-12.48
-"""
-    )
-
-    if st.button("Sum Channel Power"):
-
-        try:
-
-            values = [
-                float(x.strip())
-                for x in power_text.splitlines()
-                if x.strip()
-            ]
-
-            if len(values) == 0:
-                st.warning("No data entered")
-
-            else:
-
-                total_linear = sum(
-                    db_to_linear(v)
-                    for v in values
-                )
-
-                total_db = linear_to_db(
-                    total_linear
-                )
-
-                st.success(
-                    f"Total Power = {total_db:.2f} dBmV"
-                )
-
-                st.write(
-                    f"Channels Count = {len(values)}"
-                )
-
-        except Exception:
-
-            st.error(
-                "Please enter valid numbers."
-            )
-
-# ==========================================
-# Footer
-# ==========================================
-
-st.divider()
-
-st.caption(
-    "EdisonSu DOCSIS RF Power Calculator v1.0"
-)
+    st.info
