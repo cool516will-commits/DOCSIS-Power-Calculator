@@ -18,7 +18,7 @@ st.title("📡 EdisonSu DOCSIS Power Calculator")
 tab1, tab2, tab3, tab4 = st.tabs([
     "🔍 1. OFDMA 頻寬等效換算",
     "📈 2. 多 OFDMA 區塊 PSD 疊加",
-    "📟 3. SC-QAM 多通道加總",
+    "📟 3. SC-QAM 多通道計算 (含自訂 BW)",
     "📊 4. 多通道複合總功率 TCP 計算"
 ])
 
@@ -52,19 +52,27 @@ with tab2:
         res = linear_to_db(psd_sum * target_bw)
         st.metric("複合總功率", f"{res:.2f} dBmV")
 
-# 3. SC-QAM 多通道加總 (修正線性相加公式)
+# 3. SC-QAM 多通道計算 (新增使用者自訂 BW)
 with tab3:
-    st.markdown("## SC-QAM 多通道純公式加總")
-    num = st.slider("SC-QAM 通道數量", 1, 16, 8, key="t3_num")
-    chans = []
-    for i in range(num):
-        c = st.columns(2)
-        p = c[0].number_input(f"通道 {i} 功率 (dBmV)", value=30.00, key=f"t3_p_{i}")
-        chans.append(p)
-    
-    linear_sum = sum([db_to_linear(p) for p in chans])
-    res = linear_to_db(linear_sum)
-    st.title(f"{res:.2f} dBmV")
+    st.markdown("## SC-QAM 多通道計算 (對齊 Excel 邏輯)")
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        num = st.slider("SC-QAM 通道數量", 1, 16, 8, key="t3_num")
+        ref_bw = st.number_input("設定參考頻寬 (MHz)", value=1.6, step=0.1, key="t3_ref_bw")
+        chans = []
+        for i in range(num):
+            p = st.number_input(f"通道 {i} 功率 (dBmV)", value=30.00, key=f"t3_p_{i}")
+            chans.append(p)
+    with col2:
+        # 對齊 Excel：PSD = P - 10*log10(BW), 然後線性相加再轉回
+        if ref_bw > 0:
+            linear_psd_list = [10 ** ((p - 10 * math.log10(ref_bw)) / 10) for p in chans]
+            avg_psd_linear = sum(linear_psd_list) / len(chans)
+            total_bw = len(chans) * ref_bw
+            res = 10 * math.log10(avg_psd_linear * total_bw)
+            st.title(f"{res:.2f} dBmV")
+            st.write(f"平均 PSD (線性): {avg_psd_linear:.2f}")
+            st.write(f"總頻寬: {total_bw:.2f} MHz")
 
 # 4. 多通道複合總功率 TCP 計算
 with tab4:
