@@ -1,105 +1,122 @@
 import streamlit as st
+import pandas as pd
 import math
+import numpy as np
 
 st.set_page_config(page_title="DOCSIS RF Tool", layout="wide")
 
-st.title("📡 DOCSIS RF Power Calculator (Clean Engineering Mode)")
+st.title("📡 DOCSIS RF Power Calculator (Per-Channel True Model)")
 
 
 # -----------------------------
 # FUNCTION
 # -----------------------------
-def bw_scale(power_dbmv, bw_mhz):
-    return power_dbmv + 10 * math.log10(bw_mhz / 6.0)
+def bw_scale(p, bw):
+    try:
+        return float(p) + 10 * math.log10(float(bw) / 6.0)
+    except:
+        return np.nan
 
 
-def lin(db):
-    return 10 ** (db / 10)
+def to_lin(db):
+    try:
+        return 10 ** (float(db) / 10)
+    except:
+        return 0
 
 
-def total(db_value):
-    return lin(db_value)
+def total_db(series):
+    vals = pd.to_numeric(series, errors="coerce").dropna()
+    if len(vals) == 0:
+        return 0
+    return 10 * math.log10(sum([10 ** (v / 10) for v in vals]))
 
 
 # -----------------------------
-# SC-QAM
+# SC-QAM (PER CHANNEL)
 # -----------------------------
-st.header("📶 SC-QAM")
+st.header("📶 SC-QAM (Per Channel)")
 
-scqam_count = st.number_input("SC-QAM Channel Count", 0, 500, 10)
-
-scqam_power = st.number_input("SC-QAM Power per Channel (dBmV)", 0.0)
-
-scqam_bw = st.selectbox(
-    "SC-QAM BW (MHz)",
-    [1.6, 3.2, 6.0, 6.4],
-    index=2
+scqam_df = st.data_editor(
+    pd.DataFrame([
+        {"Channel": "SC-QAM 1", "Power_dBmV": 0.0, "BW_MHz": 6.0}
+    ]),
+    num_rows="dynamic",
+    use_container_width=True
 )
 
-scqam_db = bw_scale(scqam_power, scqam_bw)
-
-scqam_total_lin = lin(scqam_db) * scqam_count
-
-
-# -----------------------------
-# OFDM
-# -----------------------------
-st.header("📡 OFDM")
-
-ofdm_count = st.number_input("OFDM Channel Count", 0, 10, 1)
-
-ofdm_power = st.number_input("OFDM Power per Channel (dBmV)", 0.0)
-
-ofdm_bw = st.number_input("OFDM BW (MHz)", 192.0)
-
-ofdm_db = bw_scale(ofdm_power, ofdm_bw)
-
-ofdm_total_lin = lin(ofdm_db) * ofdm_count
-
-
-# -----------------------------
-# OFDMA
-# -----------------------------
-st.header("📡 OFDMA")
-
-ofdma_count = st.number_input("OFDMA Channel Count", 0, 10, 1)
-
-ofdma_power = st.number_input("OFDMA Power per Channel (dBmV)", 0.0)
-
-ofdma_bw = st.selectbox(
-    "OFDMA BW (MHz)",
-    [1.6, 3.2, 6.4, 12.8, 25.6, 51.2],
-    index=2
+scqam_df["Normalized"] = scqam_df.apply(
+    lambda r: bw_scale(r["Power_dBmV"], r["BW_MHz"]),
+    axis=1
 )
 
-ofdma_db = bw_scale(ofdma_power, ofdma_bw)
 
-ofdma_total_lin = lin(ofdma_db) * ofdma_count
+# -----------------------------
+# OFDM (PER BLOCK)
+# -----------------------------
+st.header("📡 OFDM (Per Channel)")
+
+ofdm_df = st.data_editor(
+    pd.DataFrame([
+        {"Channel": "OFDM 1", "Power_dBmV": 0.0, "BW_MHz": 192.0}
+    ]),
+    num_rows="dynamic",
+    use_container_width=True
+)
+
+ofdm_df["Normalized"] = ofdm_df.apply(
+    lambda r: bw_scale(r["Power_dBmV"], r["BW_MHz"]),
+    axis=1
+)
 
 
 # -----------------------------
-# RESULT
+# OFDMA (PER CHANNEL)
 # -----------------------------
-st.header("📊 Result")
+st.header("📡 OFDMA (Per Channel)")
 
-scqam_db_total = 10 * math.log10(scqam_total_lin) if scqam_total_lin > 0 else 0
-ofdm_db_total = 10 * math.log10(ofdm_total_lin) if ofdm_total_lin > 0 else 0
-ofdma_db_total = 10 * math.log10(ofdma_total_lin) if ofdma_total_lin > 0 else 0
+ofdma_df = st.data_editor(
+    pd.DataFrame([
+        {"Channel": "OFDMA 1", "Power_dBmV": 0.0, "BW_MHz": 6.4}
+    ]),
+    num_rows="dynamic",
+    use_container_width=True
+)
 
-grand_lin = scqam_total_lin + ofdm_total_lin + ofdma_total_lin
+ofdma_df["Normalized"] = ofdma_df.apply(
+    lambda r: bw_scale(r["Power_dBmV"], r["BW_MHz"]),
+    axis=1
+)
+
+
+# -----------------------------
+# RESULTS
+# -----------------------------
+st.header("📊 Results")
+
+scqam_total = total_db(scqam_df["Normalized"])
+ofdm_total = total_db(ofdm_df["Normalized"])
+ofdma_total = total_db(ofdma_df["Normalized"])
+
+grand_lin = (
+    sum([10 ** (scqam_total / 10),
+         10 ** (ofdm_total / 10),
+         10 ** (ofdma_total / 10)])
+)
+
 grand_db = 10 * math.log10(grand_lin) if grand_lin > 0 else 0
 
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("SC-QAM Total", round(scqam_db_total, 2))
+    st.metric("SC-QAM", round(scqam_total, 2))
 
 with col2:
-    st.metric("OFDM Total", round(ofdm_db_total, 2))
+    st.metric("OFDM", round(ofdm_total, 2))
 
 with col3:
-    st.metric("OFDMA Total", round(ofdma_db_total, 2))
+    st.metric("OFDMA", round(ofdma_total, 2))
 
 with col4:
-    st.metric("🔥 GRAND TOTAL", round(grand_db, 2))
+    st.metric("🔥 TOTAL", round(grand_db, 2))
