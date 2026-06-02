@@ -21,21 +21,20 @@ def linear_to_db(linear):
 st.title("📡 EdisonSu DOCSIS Power Calculator")
 st.markdown("---")
 
-# 4. 建立你指定的兩個功能分頁
+# 4. 建立功能分頁
 tab1, tab2 = st.tabs([
     "🧮 多通道 TCP 功率計算 (Broadcom 數據對照)",
     "📈 SC-QAM + OFDMA 混合計算"
 ])
 
 # ==========================================
-# TAB 1: 多通道 TCP 功率計算（依據 Broadcom 數據）
+# TAB 1: 多通道 TCP 功率計算
 # ==========================================
 with tab1:
     st.subheader("多通道複合總功率計算 (Total Composite Power)")
     col1, col2 = st.columns([1.5, 1])
     
     with col1:
-        # 你要求的一次性系統總頻寬限制
         bw_limit = st.number_input("⚙️ 設定一次性系統總頻寬上限限制 (MHz)", value=100.0, step=5.0, format="%.1f")
         ch_num = st.slider("欲計算的總通道數量", min_value=1, max_value=12, value=8)
         
@@ -96,5 +95,4 @@ with tab2:
         st.info(f"📊 SC-QAM 總和功率: {linear_to_db(total_qam_linear):.2f} dBmV | OFDMA 總功率: {ofdma_p:.2f} dBmV")
         st.warning(f"🌐 總佔用頻寬: {total_bw:.2f} MHz")
 
-st.markdown("---")
-st.caption
+st.markdown
