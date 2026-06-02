@@ -1,126 +1,76 @@
 import streamlit as st
 import math
 
-st.set_page_config(page_title="DOCSIS RF Engineer Tool", layout="wide")
+st.set_page_config(page_title="DOCSIS RF Power Tool (Engineering Grade)", layout="wide")
 
-st.title("📡 DOCSIS RF Calculator (Engineering Safe Model)")
+# ----------------------------
+# RF CONSTANTS
+# ----------------------------
+IMPEDANCE = 75  # ohm
 
+def dbmv_to_dbm(dbmv):
+    return dbmv - 10 * math.log10(IMPEDANCE) - 30
 
-# -----------------------------
-# BASIC FUNCTIONS
-# -----------------------------
-def lin(db):
+def dbm_to_dbmv(dbm):
+    return dbm + 10 * math.log10(IMPEDANCE) + 30
+
+def lin_power(db):
     return 10 ** (db / 10)
 
+def db_power(lin):
+    return 10 * math.log10(lin)
 
-def db(lin_val):
-    return 10 * math.log10(lin_val) if lin_val > 0 else 0
+# ----------------------------
+# PSD ENGINE
+# ----------------------------
+def calc_psd(total_power_dbm, bw_mhz):
+    bw_hz = bw_mhz * 1e6
+    return total_power_dbm - 10 * math.log10(bw_hz)
 
+def calc_total_from_psd(psd_dbm_hz, bw_mhz):
+    bw_hz = bw_mhz * 1e6
+    return psd_dbm_hz + 10 * math.log10(bw_hz)
 
-# -----------------------------
-# SC-QAM (NO BW MODEL)
-# -----------------------------
-st.header("📶 SC-QAM (Integrated Power Model)")
+# ----------------------------
+# UI
+# ----------------------------
+st.title("📡 DOCSIS RF Power Calculator (Engineering Grade + PSD Engine)")
 
-n_scqam = st.number_input("SC-QAM Channel Count", 1, 500, 8)
+mode = st.selectbox("Mode", ["SC-QAM", "OFDMA"])
 
-scqam_powers = []
+st.subheader("Input")
 
-for i in range(n_scqam):
-    c1, c2 = st.columns(2)
+if mode == "SC-QAM":
 
-    with c1:
-        p = st.number_input(f"CH{i+1} Power (dBmV)", value=30.0, key=f"sc_{i}")
+    num_ch = st.number_input("Number of SC-QAM Channels", 1, 500, 32)
+    power_dbmv = st.number_input("Power per Channel (dBmV)", 0.0, 80.0, 35.0)
+    bw_mhz = st.number_input("Channel BW (MHz)", 1.0, 10.0, 6.0)
 
-    with c2:
-        st.write("BW fixed = 1.6 MHz (NO scaling)")
+    if st.button("Calculate"):
 
-    scqam_powers.append(p)
+        power_dbm = dbmv_to_dbm(power_dbmv)
+        psd = calc_psd(power_dbm, bw_mhz)
 
-scqam_total_lin = sum(lin(p) for p in scqam_powers)
-scqam_total_db = db(scqam_total_lin)
+        total_lin = 0.0
 
+        for _ in range(num_ch):
+            total_lin += lin_power(power_dbm)
 
-# -----------------------------
-# OFDM (PSD MODEL)
-# -----------------------------
-st.header("📡 OFDM (PSD Model)")
+        total_dbm = db_power(total_lin)
 
-n_ofdm = st.number_input("OFDM Channel Count", 1, 10, 1)
+        total_dbmv = dbm_to_dbmv(total_dbm)
 
-ofdm_bw = st.number_input("OFDM BW (MHz)", 192.0)
+        st.subheader("Result")
 
-ofdm_powers = []
-
-for i in range(n_ofdm):
-    c1, c2 = st.columns(2)
-
-    with c1:
-        p = st.number_input(f"OFDM{i+1} Power (dBmV)", value=0.0, key=f"ofd_{i}")
-
-    with c2:
-        st.write(f"BW = {ofdm_bw} MHz (used for PSD scaling)")
-
-    # PSD normalization
-    p_norm = p + 10 * math.log10(ofdm_bw / 6.0)
-    ofdm_powers.append(p_norm)
-
-ofdm_total_db = db(sum(lin(p) for p in ofdm_powers))
+        st.write(f"Per Channel PSD: **{psd:.2f} dBm/Hz**")
+        st.write(f"Total Power (linear sum): **{total_dbmv:.2f} dBmV**")
+        st.write(f"Total Power (dBm): **{total_dbm:.2f} dBm**")
 
 
-# -----------------------------
-# OFDMA (PSD MODEL)
-# -----------------------------
-st.header("📡 OFDMA (PSD Model)")
+# ----------------------------
+# OFDMA ENGINE (PSD BASED)
+# ----------------------------
+else:
 
-n_ofdma = st.number_input("OFDMA Channel Count", 1, 10, 1)
-
-ofdma_bw = st.selectbox("OFDMA BW (MHz)", [1.6, 3.2, 6.4, 12.8, 25.6], index=2)
-
-ofdma_powers = []
-
-for i in range(n_ofdma):
-    c1, c2 = st.columns(2)
-
-    with c1:
-        p = st.number_input(f"OFDMA{i+1} Power (dBmV)", value=0.0, key=f"ofdma_{i}")
-
-    with c2:
-        st.write(f"BW = {ofdma_bw} MHz")
-
-    p_norm = p + 10 * math.log10(ofdma_bw / 6.0)
-    ofdma_powers.append(p_norm)
-
-ofdma_total_db = db(sum(lin(p) for p in ofdma_powers))
-
-
-# -----------------------------
-# FINAL SUM (SAFE DOMAIN)
-# -----------------------------
-st.header("📊 Final Result")
-
-grand_lin = (
-    lin(scqam_total_db) +
-    lin(ofdm_total_db) +
-    lin(ofdma_total_db)
-)
-
-grand_db = db(grand_lin)
-
-
-# -----------------------------
-# OUTPUT
-# -----------------------------
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric("SC-QAM (true sum)", round(scqam_total_db, 2))
-
-with col2:
-    st.metric("OFDM (PSD)", round(ofdm_total_db, 2))
-
-with col3:
-    st.metric("OFDMA (PSD)", round(ofdma_total_db, 2))
-
-with col4:
-    st.metric("🔥 TOTAL", round(grand_db, 2))
+    num_subcarriers = st.number_input("Number of Subcarriers", 1, 20000, 4096)
+    spacing_khz = st.number_input("
