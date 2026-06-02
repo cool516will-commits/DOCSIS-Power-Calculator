@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. 基礎 RF 轉換函式
+# 基礎 RF 轉換函式
 def db_to_linear(db):
     return 10 ** (db / 10)
 
@@ -17,74 +17,77 @@ def linear_to_db(linear):
         return 0
     return 10 * math.log10(linear)
 
-# 3. 網頁大標題
 st.title("📡 EdisonSu DOCSIS Power Calculator")
 
-# 4. 建立功能分頁
-tab1, tab2 = st.tabs([
-    "🧮 多通道 TCP 功率計算 (純數值純公式版)",
-    "📈 SC-QAM + OFDMA 混合計算"
+# 建立原本對應的三個 Tab 分頁
+tab1, tab2, tab3 = st.tabs([
+    "📈 OFDMA BW Converter",
+    "📊 SC-QAM + OFDMA 混合計算",
+    "🧮 Multi Channel Sum"
 ])
 
 # ==========================================
-# TAB 1: 多通道 TCP 功率計算 (輸入多少就直接算多少)
+# TAB 1: OFDMA 功率與頻寬換算 (修正後的鋼鐵公式)
 # ==========================================
 with tab1:
-    st.header("多通道複合總功率計算 (Total Composite Power)")
+    st.header("OFDMA Power & Bandwidth Converter")
+    st.markdown("💡 **說明**：當你量到一段大頻寬的 OFDMA 總功率時，可以用此功能換算成目標小頻寬（如 6.5MHz）下的等效功率。")
+    
     col1, col2 = st.columns([1.5, 1])
     
     with col1:
-        ch_num = st.slider("欲計算的總通道數量", min_value=1, max_value=12, value=2)
+        p_measured = st.number_input("1. 輸入量測到的總功率 (Measured Power, dBmV)", value=33.00, step=0.1, format="%.2f")
+        bw_measured = st.number_input("2. 量測訊號的總頻寬 (Measured Bandwidth, MHz)", value=95.00, step=1.0, format="%.2f")
+        bw_target = st.number_input("3. 你想換算成的目標頻寬 (Target Bandwidth, MHz)", value=6.50, step=0.1, format="%.2f")
         
-        st.subheader("📥 各通道實際數據輸入")
-        ch_powers = []
-        ch_bws = []
-        
-        for i in range(ch_num):
-            c_lines = st.columns(2)
-            with c_lines[0]:
-                p = st.number_input(f"通道 {i} 功率 (dBmV)", value=45.0, step=0.5, format="%.2f", key=f"p_{i}")
-                ch_powers.append(p)
-            with c_lines[1]:
-                bw = st.number_input(f"通道 {i} 頻寬 (MHz)", value=96.0, step=1.0, format="%.2f", key=f"bw_{i}")
-                ch_bws.append(bw)
-                
     with col2:
-        # 完全沒有任何 bw_factor 的純數值線性相加公式
-        total_linear_sum = sum([db_to_linear(p) for p in ch_powers])
-        tcp_dbmv = linear_to_db(total_linear_sum)
-        sum_bw = sum(ch_bws)
-        
-        st.metric(label="🔋 複合總輸出功率 (Total Composite Power)", value=f"{tcp_dbmv:.2f} dBmV")
-        st.success(f"📊 採純功率線性加總公式，算出來多少就是多少")
-        st.info(f"🌐 目前通道累積總頻寬: {sum_bw:.2f} MHz")
+        if bw_measured > 0 and bw_target > 0:
+            # 正確的 PSD 頻寬轉換公式
+            p_converted = p_measured + (10 * math.log10(bw_target / bw_measured))
+            
+            st.metric(label="等效換算後的功率 (Converted Power)", value=f"{p_converted:.2f} dBmV")
+            
+            # 顯示清楚的文字對照區塊
+            st.info(f"📋 原始條件: {p_measured:.2f} dBmV @ {bw_measured:.2f} MHz")
+            st.success(f"🎯 等效換算: 相當於在 {bw_target:.2f} MHz 頻寬下分配到 {p_converted:.2f} dBmV 的功率。")
+        else:
+            st.error("頻寬數值必須大於 0")
 
 # ==========================================
-# TAB 2: SC-QAM + OFDMA 混合計算 (同步改為純數值加總)
+# TAB 2: SC-QAM + OFDMA 混合計算
 # ==========================================
 with tab2:
     st.header("SC-QAM 與 OFDMA 總功率混合計算")
     col1, col2 = st.columns([1.2, 1])
     
     with col1:
-        st.subheader("📥 傳統 SC-QAM 設定")
-        qam_count = st.number_input("SC-QAM 通道數量", min_value=0, max_value=8, value=8, step=1)
+        qam_count = st.number_input("SC-QAM 通道數量", min_value=0, max_value=32, value=8, step=1)
         qam_p = st.number_input("單一 SC-QAM 通道功率 (dBmV)", value=30.50, step=0.1, format="%.2f")
-        qam_bw = st.number_input("單一 SC-QAM 佔用頻寬 (MHz)", value=1.60, step=0.1, format="%.2f")
-        
-        st.subheader("📥 新式 OFDMA 設定")
         ofdma_p = st.number_input("OFDMA 總量測功率 (dBmV)", value=33.00, step=0.1, format="%.2f")
-        ofdma_bw = st.number_input("OFDMA 量測總頻寬 (MHz)", value=95.00, step=1.0, format="%.2f")
         
     with col2:
-        # 同步拔除所有頻寬權重，純粹看通道數量與輸入數值
         total_qam_linear = db_to_linear(qam_p) * qam_count if qam_count > 0 else 0
         total_ofdma_linear = db_to_linear(ofdma_p)
-        total_tcp_linear = total_qam_linear + total_ofdma_linear
         
-        total_tcp_dbmv = linear_to_db(total_tcp_linear)
-        total_bw = (qam_count * qam_bw) + ofdma_bw
+        mix_tcp = linear_to_db(total_qam_linear + total_ofdma_linear)
+        st.metric(label="🔋 混合總輸出功率 (TCP)", value=f"{mix_tcp:.2f} dBmV")
+
+# ==========================================
+# TAB 3: 多通道純數值加總 (輸入多少就線性加多少)
+# ==========================================
+with tab3:
+    st.header("多通道純數值複合總功率計算")
+    col1, col2 = st.columns([1.5, 1])
+    
+    with col1:
+        ch_num = st.slider("欲計算的總通道數量", min_value=1, max_value=32, value=8, key="tab3_slider")
+        ch_powers = []
+        for i in range(ch_num):
+            p = st.number_input(f"通道 {i} 功率 (dBmV)", value=30.00, step=0.01, format="%.2f", key=f"t3_p_{i}")
+            ch_powers.append(p)
+            
+    with col2:
+        total_linear_sum = sum([db_to_linear(p) for p in ch_powers])
+        tcp_dbmv = linear_to_db(total_linear_sum)
         
-        st.metric(label="🔋 混合總輸出功率 (TCP)", value=f"{total_tcp_dbmv:.2f} dBmV")
-        st.info(f"📊 SC-QAM 總和功率: {linear_to_db(total_qam_linear):.2f} dBmV | OFDMA 總功率: {ofdma_p:.2f} dBmV")
-        st.info(f"🌐 總佔用頻寬: {total_bw:.2f} MHz")
+        st.metric(label="📊 純公式加總總功率 (TCP)", value=f"{tcp_dbmv:.2f} dBmV")
