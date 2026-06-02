@@ -1,166 +1,87 @@
 import streamlit as st
-import pandas as pd
 import math
-import numpy as np
 
-st.set_page_config(
-    page_title="DOCSIS RF Power Calculator Pro",
-    layout="wide"
-)
+st.set_page_config(page_title="DOCSIS RF Calculator", layout="wide")
 
-st.title("📡 DOCSIS RF Power Calculator - Stable Edition")
+st.title("📡 DOCSIS RF Power Calculator (Pure Engineering Mode)")
 
 
 # -----------------------------
-# SAFE POWER MODEL
+# FUNCTION
 # -----------------------------
-def bw_scale_power(power_dbmv, bw_mhz):
-    if bw_mhz is None or power_dbmv is None:
-        return np.nan
-    try:
-        bw_mhz = float(bw_mhz)
-        power_dbmv = float(power_dbmv)
-        if bw_mhz <= 0:
-            return np.nan
-        return power_dbmv + 10 * math.log10(bw_mhz / 6.0)
-    except:
-        return np.nan
+def bw_scale(power_dbmv, bw_mhz):
+    if bw_mhz <= 0:
+        return None
+    return power_dbmv + 10 * math.log10(bw_mhz / 6.0)
 
 
-def total_power(df):
-    if df is None or df.empty:
-        return 0
-
-    if "Normalized_6MHz" not in df.columns:
-        return 0
-
-    vals = pd.to_numeric(df["Normalized_6MHz"], errors="coerce").dropna()
-
-    if len(vals) == 0:
-        return 0
-
-    lin = (10 ** (vals / 10)).sum()
-
-    if lin <= 0:
-        return 0
-
-    return 10 * math.log10(lin)
-
-
-def safe_df(df):
-    """ensure numeric safety"""
-    df = df.copy()
-
-    for col in ["Power_dBmV", "BW_MHz"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    return df
+def lin(p_db):
+    return 10 ** (p_db / 10)
 
 
 # -----------------------------
 # SC-QAM
 # -----------------------------
-st.header("📶 SC-QAM (Dynamic)")
+st.header("📶 SC-QAM")
 
-scqam_df = st.data_editor(
-    pd.DataFrame([
-        {"Channel": "SC-QAM 1", "Power_dBmV": 0.0, "BW_MHz": 6.0}
-    ]),
-    num_rows="dynamic",
-    use_container_width=True
-)
+scqam_count = st.number_input("SC-QAM Channel Count", 0, 500, 10)
+scqam_power = st.number_input("SC-QAM Power (dBmV per channel)", 0.0)
 
-scqam_df = safe_df(scqam_df)
+scqam_bw = 6.0
+scqam_norm = bw_scale(scqam_power, scqam_bw)
 
-scqam_df["Normalized_6MHz"] = scqam_df.apply(
-    lambda r: bw_scale_power(r.get("Power_dBmV"), r.get("BW_MHz")),
-    axis=1
-)
+scqam_total = lin(scqam_norm) * scqam_count
 
 
 # -----------------------------
 # OFDM
 # -----------------------------
-st.header("📡 OFDM (Dynamic)")
+st.header("📡 OFDM")
 
-ofdm_df = st.data_editor(
-    pd.DataFrame([
-        {"Channel": "OFDM 1", "Power_dBmV": 0.0, "BW_MHz": 192.0}
-    ]),
-    num_rows="dynamic",
-    use_container_width=True
-)
+ofdm_count = st.number_input("OFDM Channel Count", 0, 10, 1)
+ofdm_power = st.number_input("OFDM Power (dBmV)", 0.0)
+ofdm_bw = st.number_input("OFDM BW (MHz)", 192.0)
 
-ofdm_df = safe_df(ofdm_df)
-
-ofdm_df["Normalized_6MHz"] = ofdm_df.apply(
-    lambda r: bw_scale_power(r.get("Power_dBmV"), r.get("BW_MHz")),
-    axis=1
-)
+ofdm_norm = bw_scale(ofdm_power, ofdm_bw)
+ofdm_total = lin(ofdm_norm) * ofdm_count
 
 
 # -----------------------------
 # OFDMA
 # -----------------------------
-st.header("📡 OFDMA (Dynamic Multi-Channel)")
+st.header("📡 OFDMA")
 
-ofdma_df = st.data_editor(
-    pd.DataFrame([
-        {"Channel": "OFDMA 1", "Power_dBmV": 0.0, "BW_MHz": 6.4}
-    ]),
-    num_rows="dynamic",
-    use_container_width=True
-)
+ofdma_count = st.number_input("OFDMA Channel Count", 0, 10, 1)
+ofdma_power = st.number_input("OFDMA Power (dBmV)", 0.0)
+ofdma_bw = st.number_input("OFDMA BW (MHz)", 6.4)
 
-ofdma_df = safe_df(ofdma_df)
-
-ofdma_df["Normalized_6MHz"] = ofdma_df.apply(
-    lambda r: bw_scale_power(r.get("Power_dBmV"), r.get("BW_MHz")),
-    axis=1
-)
+ofdma_norm = bw_scale(ofdma_power, ofdma_bw)
+ofdma_total = lin(ofdma_norm) * ofdma_count
 
 
 # -----------------------------
-# SUMMARY
+# RESULT
 # -----------------------------
-st.header("📊 Summary")
+st.header("📊 Results")
 
-col1, col2, col3 = st.columns(3)
+scqam_db = 10 * math.log10(scqam_total) if scqam_total > 0 else 0
+ofdm_db = 10 * math.log10(ofdm_total) if ofdm_total > 0 else 0
+ofdma_db = 10 * math.log10(ofdma_total) if ofdma_total > 0 else 0
+
+grand_total = scqam_total + ofdm_total + ofdma_total
+grand_db = 10 * math.log10(grand_total) if grand_total > 0 else 0
+
+
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.subheader("SC-QAM")
-    st.dataframe(scqam_df, use_container_width=True)
+    st.metric("SC-QAM Total (dBmV eq.)", round(scqam_db, 2))
 
 with col2:
-    st.subheader("OFDM")
-    st.dataframe(ofdm_df, use_container_width=True)
+    st.metric("OFDM Total (dBmV eq.)", round(ofdm_db, 2))
 
 with col3:
-    st.subheader("OFDMA")
-    st.dataframe(ofdma_df, use_container_width=True)
+    st.metric("OFDMA Total (dBmV eq.)", round(ofdma_db, 2))
 
-
-# -----------------------------
-# TOTAL
-# -----------------------------
-st.header("📈 Total Power")
-
-scqam_total = total_power(scqam_df)
-ofdm_total = total_power(ofdm_df)
-ofdma_total = total_power(ofdma_df)
-
-st.metric("SC-QAM Total", round(scqam_total, 2))
-st.metric("OFDM Total", round(ofdm_total, 2))
-st.metric("OFDMA Total", round(ofdma_total, 2))
-
-grand_total = 10 * math.log10(
-    sum([
-        10 ** (scqam_total / 10) if scqam_total else 0,
-        10 ** (ofdm_total / 10) if ofdm_total else 0,
-        10 ** (ofdma_total / 10) if ofdma_total else 0
-    ])
-)
-
-st.divider()
-st.metric("🔥 GRAND TOTAL", round(grand_total, 2))
+with col4:
+    st.metric("🔥 GRAND TOTAL", round(grand_db, 2))
