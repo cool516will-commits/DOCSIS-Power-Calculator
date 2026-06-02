@@ -22,12 +22,12 @@ st.title("📡 EdisonSu DOCSIS Power Calculator")
 
 # 4. 建立功能分頁
 tab1, tab2 = st.tabs([
-    "🧮 多通道 TCP 功率計算 (Broadcom 數據對照)",
+    "🧮 多通道 TCP 功率計算",
     "📈 SC-QAM + OFDMA 混合計算"
 ])
 
 # ==========================================
-# TAB 1: 多通道 TCP 功率計算 (對齊 Broadcom Legacy Output)
+# TAB 1: 多通道 TCP 功率計算
 # ==========================================
 with tab1:
     st.header("多通道複合總功率計算 (Total Composite Power)")
@@ -79,12 +79,12 @@ with tab2:
     col1, col2 = st.columns([1.2, 1])
     
     with col1:
-        st.subheader("📥 傳統 SC-QAM 設定")
+        st.subheader("📥 SC-QAM 設定")
         qam_count = st.number_input("SC-QAM 通道數量", min_value=0, max_value=8, value=8, step=1)
         qam_p = st.number_input("單一 SC-QAM 通道功率 (dBmV)", value=30.50, step=0.1, format="%.2f")
         qam_bw = st.number_input("單一 SC-QAM 佔用頻寬 (MHz)", value=1.60, step=0.1, format="%.2f")
         
-        st.subheader("📥 新式 OFDMA 設定")
+        st.subheader("📥 OFDMA 設定")
         ofdma_p = st.number_input("OFDMA 總量測功率 (dBmV)", value=33.00, step=0.1, format="%.2f")
         ofdma_bw = st.number_input("OFDMA 量測總頻寬 (MHz)", value=95.00, step=1.0, format="%.2f")
         
