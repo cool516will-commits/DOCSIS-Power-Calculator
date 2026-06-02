@@ -52,7 +52,7 @@ with tab2:
         res = linear_to_db(psd_sum * target_bw)
         st.metric("複合總功率", f"{res:.2f} dBmV")
 
-# 3. SC-QAM 多通道加總
+# 3. SC-QAM 多通道加總 (修正線性相加公式)
 with tab3:
     st.markdown("## SC-QAM 多通道純公式加總")
     num = st.slider("SC-QAM 通道數量", 1, 16, 8, key="t3_num")
