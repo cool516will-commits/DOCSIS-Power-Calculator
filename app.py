@@ -18,14 +18,15 @@ def linear_to_db(linear):
 
 st.title("📡 EdisonSu DOCSIS Power Calculator")
 
-# 建立功能完全分開的兩個分頁
-tab1, tab2 = st.tabs([
-    "📈 多 OFDMA 功率譜密度 (PSD) 換算",
-    "📊 多通道純數值 TCP 功率計算"
+# 嚴格區分三頁不同功能的分頁
+tab1, tab2, tab3 = st.tabs([
+    "📈 第一頁：OFDMA 公式計算 (PSD 換算)",
+    "📟 第二頁：SC-QAM 公式計算 (多通道)",
+    "📊 第三頁：Multi 通道純數值總和 (TCP)"
 ])
 
 # ==========================================
-# TAB 1: 多 OFDMA 功率譜密度 (PSD) 換算
+# 📈 第一頁：OFDMA 公式計算 (PSD 換算)
 # ==========================================
 with tab1:
     st.markdown("### 多 OFDMA 區塊等效頻寬功率換算 (基於 PSD 疊加)")
@@ -75,37 +76,81 @@ with tab1:
 
 
 # ==========================================
-# TAB 2: 多通道純數值 TCP 功率計算 (獨立功能，純線性相加)
+# 📟 第二頁：SC-QAM 公式計算 (多通道)
 # ==========================================
 with tab2:
-    st.markdown("### 多通道純數值複合總功率計算 (Total Composite Power)")
-    st.markdown("💡 **說明**：此頁面不做任何頻寬比例縮放，直接將所有輸入通道的功率進行純線性相加。")
+    st.markdown("### SC-QAM 多通道功率純線性相加計算")
+    st.markdown("💡 **說明**：專為單純 SC-QAM 多通道量測設計，將各通道 dBmV 功率直接轉為 mW 後進行純線性疊加。")
     
     col1, col2 = st.columns([1.5, 1])
     
     with col1:
-        ch_num = st.slider("欲計算的總通道數量", min_value=1, max_value=12, value=2, key="t2_slider")
-        st.markdown("#### 📥 各通道實際數據輸入")
-        ch_data = []
+        qam_num = st.slider("請選擇 SC-QAM 通道數量", min_value=1, max_value=16, value=8, key="t2_qam_num")
         
-        for i in range(ch_num):
+        st.markdown("#### 📥 各 SC-QAM 通道獨立參數輸入")
+        qam_data = []
+        
+        for i in range(qam_num):
             c_lines = st.columns(2)
             with c_lines[0]:
-                default_p = 33.00 if i == 0 else 30.25
-                p = st.number_input(f"通道 {i} 實際功率 (dBmV)", value=default_p, step=0.01, format="%.2f", key=f"t2_p_{i}")
+                # 預設載入對齊測試的 8 通道經典數據
+                if i == 0: default_qp = 29.25
+                elif i == 1: default_qp = 32.00
+                elif i == 2: default_qp = 32.25
+                elif i in [3, 4]: default_qp = 29.75
+                elif i in [5, 6]: default_qp = 30.25
+                elif i == 7: default_qp = 30.75
+                else: default_qp = 30.00
+                qp = st.number_input(f"SC-QAM 通道 {i} 功率 (dBmV)", value=default_qp, step=0.01, format="%.2f", key=f"t2_p_{i}")
             with c_lines[1]:
-                default_bw = 6.40
-                bw = st.number_input(f"通道 {i} 參考頻寬 (MHz)", value=default_bw, step=0.1, format="%.2f", key=f"t2_bw_{i}")
-            ch_data.append({"power": p, "bw": bw})
+                default_qbw = 1.60
+                qbw = st.number_input(f"SC-QAM 通道 {i} 參考頻寬 (MHz)", value=default_qbw, step=0.1, format="%.2f", key=f"t2_bw_{i}")
+            qam_data.append({"power": qp, "bw": qbw})
             
     with col2:
-        # 單純線性加總公式，不套用 PSD 縮放
-        total_linear = sum([db_to_linear(ch["power"]) for ch in ch_data])
-        tcp_dbmv = linear_to_db(total_linear)
-        total_bw = sum([ch["bw"] for ch in ch_data])
+        # 純數值線性相加公式
+        total_qam_linear = sum([db_to_linear(ch["power"]) for ch in qam_data])
+        qam_tcp_dbmv = linear_to_db(total_qam_linear)
+        total_qam_bw = sum([ch["bw"] for ch in qam_data])
         
-        st.markdown("#### 📊 純線性加總複合總功率 (TCP)")
-        st.metric(label="Total Composite Power", value=f"{tcp_dbmv:.2f} dBmV")
-        st.write(f"所有通道線性直接相加功率: {tcp_dbmv:.2f} dBmV")
-        st.write(f"累積參考總頻寬: {total_bw:.2f} MHz")
-        st.success("✅ 純公式線性相加完成，未附加任何防呆與頻寬轉換邏輯。")
+        st.markdown("#### 📊 SC-QAM 複合總功率結果")
+        st.metric(label="Total SC-QAM Composite Power", value=f"{qam_tcp_dbmv:.2f} dBmV")
+        st.write(f"所有 SC-QAM 通道線性相加功率: {qam_tcp_dbmv:.2f} dBmV")
+        st.write(f"累積總頻寬: {total_qam_bw:.2f} MHz")
+        st.success("✅ 採純功率線性加總公式，算出來多少就是多少。")
+
+
+# ==========================================
+# 📊 第三頁：Multi 通道純數值總和 (TCP)
+# ==========================================
+with tab3:
+    st.markdown("### Multi 通道純數值複合總功率加總 (無任何頻寬限制限制)")
+    st.markdown("💡 **說明**：此頁面不執行任何比例換算與警告，不管是 QAM、OFDMA 還是混合訊號，有幾路加幾路，算最純粹的總合 TCP。")
+    
+    col1, col2 = st.columns([1.5, 1])
+    
+    with col1:
+        multi_num = st.slider("欲加總的總通道/訊號數量", min_value=1, max_value=16, value=2, key="t3_slider")
+        st.markdown("#### 📥 各路輸入數據")
+        multi_data = []
+        
+        for i in range(multi_num):
+            c_lines = st.columns(2)
+            with c_lines[0]:
+                default_mp = 41.00 if i == 0 else 42.00
+                mp = st.number_input(f"訊號源 {i} 功率 (dBmV)", value=default_mp, step=0.01, format="%.2f", key=f"t3_p_{i}")
+            with c_lines[1]:
+                default_mbw = 96.00
+                mbw = st.number_input(f"訊號源 {i} 頻寬 (MHz)", value=default_mbw, step=0.1, format="%.2f", key=f"t3_bw_{i}")
+            multi_data.append({"power": mp, "bw": mbw})
+            
+    with col2:
+        total_multi_linear = sum([db_to_linear(ch["power"]) for ch in multi_data])
+        multi_tcp_dbmv = linear_to_db(total_multi_linear)
+        total_multi_bw = sum([ch["bw"] for ch in multi_data])
+        
+        st.markdown("#### 📊 Multi-Channel 複合總功率 (TCP)")
+        st.metric(label="Total Composite Power", value=f"{multi_tcp_dbmv:.2f} dBmV")
+        st.write(f"所有輸入線性加總功率: {multi_tcp_dbmv:.2f} dBmV")
+        st.write(f"累積參考總頻寬: {total_multi_bw:.2f} MHz")
+        st.success("✅ 混合/通用多通道純公式加總直出。")
