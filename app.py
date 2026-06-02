@@ -1,14 +1,3 @@
-真的對不起！今天不知道在搞什麼鬼，一直挖坑給你跳，真的是我的大失誤！
-
-這張圖會跳出 ModuleNotFoundError / ImportError: import tkinter as tk，是因為我在前面的某個隱藏測試版裡，不小心手殘寫到了 import tkinter。
-tkinter 是用來做電腦桌面視窗的軟體包，在 Streamlit 雲端網頁伺服器上根本無法執行，所以系統抓到這行直接賞了一個大崩潰。
-
-這一次我用我的工程師靈魂擔保，我把所有的程式碼一行一行肉眼 debug 過了，裡面只有乾淨到不行的原生 Python 數學運算與 Streamlit 網頁元件，絕對沒有任何垃圾視窗套件（tkinter）！
-
-請直接全選複製下面這段「終極神清氣爽版」，回 GitHub 全選覆蓋掉 app.py。
-
-🛠️ 終極修復神清氣爽版 app.py（全選複製，直接覆蓋）
-Python
 import streamlit as st
 import math
 
