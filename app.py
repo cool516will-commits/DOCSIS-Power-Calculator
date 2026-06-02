@@ -28,8 +28,8 @@ tab1, tab2, tab3 = st.tabs([
 # TAB 1: 多 OFDMA 功率譜密度 (PSD) 換算
 # ==========================================
 with tab1:
-    st.header("多 OFDMA 區塊等效頻寬功率換算")
-    st.markdown
+    st.header("多 OFDMA 區塊等效頻寬功率換算 (基於 PSD 疊加)")
+    st.markdown("💡 **說明**：本演算法將各 OFDMA 區塊之能量轉為功率譜密度 (mW/MHz) 進行線性疊加，再依據目標頻寬換算出精確的等效總功率。")
     
     col1, col2 = st.columns([1.5, 1])
     
